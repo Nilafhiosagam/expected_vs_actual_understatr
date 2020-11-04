@@ -1,0 +1,10 @@
+name: dashboard
+title:
+username:
+account: vinnie-gaul
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3107340
+bundleId: 3788864
+url: https://vinnie-gaul.shinyapps.io/dashboard/
+when: 1603822952.13271

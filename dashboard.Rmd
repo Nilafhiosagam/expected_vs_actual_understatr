@@ -1,0 +1,507 @@
+---
+title: "Cowards and Chancers"
+output:
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(plotly)
+library(scales)
+```
+
+
+
+```{css, echo=FALSE}
+.intro{
+    font-family: 'Helvetica', 'Arial', sans-serif;
+}
+```
+
+
+```{r}
+df <- readRDS("./output/df.RDS")
+df2 <- readRDS("./output/df2.RDS")
+
+primary_colours <- readRDS("./output/primary_colours.RDS")
+secondary_colours <- readRDS("./output/secondary_colours.RDS")
+```
+
+
+```{r}
+
+
+stat_selection <- function(data, stat1, stat2){
+  data %>% 
+  select(team_name, player_name, primary_colour, secondary_colour, {{stat1}}, {{stat2}})
+  }
+```
+
+
+
+
+
+
+
+
+```{r}
+insults <- c("scumbag", "prick",
+  "dickhead", "loser",
+  "wanker", "shitbag",
+  "ninnyhammer", "fucker",
+  "arsehole", "shyster",
+  "son of a bitch", "beef curtain",
+  "twat", "dick",
+  "knob", "cock",
+  "cockcheese", "arse",
+  "dickbiscuit", "asshole",
+  "slug"
+)
+
+
+random_insults <- sample(insults)
+
+
+
+```
+
+```{r}
+compliments <- c("sound", "reliable", "cool")
+
+random_compliments <-sample(compliments)
+
+```
+
+
+
+
+```{r}
+team_colours <- df %>% select(team_name, primary_colour, secondary_colour) %>% distinct()
+
+df2 <- df2 %>% left_join(team_colours, by = "team_name")
+
+
+# function for picking team stats
+
+
+team_stat_selection <- function(data, stat1, stat2){
+  data %>%
+    group_by(team_name) %>% 
+    slice_max(date,1) %>%
+    select(team_name, primary_colour, secondary_colour, {{stat1}}, {{stat2}}) %>% 
+    mutate(diff = {{stat1}} - {{stat2}})
+}
+
+
+
+
+
+```
+
+
+
+
+Goals
+=======================================================================
+
+```{r}
+goals <- stat_selection(df, goals, xG)  
+
+axis <- max(pmax(goals$goals, goals$xG)) + 1
+
+text_position <- max(pmax(goals$goals, goals$xG))
+
+  
+gg_goals <- ggplot(goals, aes(goals, xG, text = paste("Player:", player_name,
+                                                       "<br>",
+                                                       "Goals:", goals,
+                                                       "<br>",
+                                                       "xG:", round(xG,2)))) +
+    geom_point(aes(colour = secondary_colour, fill = primary_colour), shape = 21, size = 5, alpha = .5) +
+    scale_color_identity(labels = goals$team_name,
+                         breaks = goals$primary_colour) +
+    scale_fill_identity(labels = goals$team_name,
+                        breaks = goals$secondary_colour) +
+  geom_abline(colour = "grey", lty = 2) +
+  annotate(geom="text", x=1, y=text_position, label= "Cowards") +
+  annotate(geom="text", x=text_position, y=1, label="Chancers") +
+  scale_x_continuous(limits = c(0,axis), breaks = pretty_breaks()) +
+  scale_y_continuous(limits = c(0,axis), breaks = pretty_breaks()) +
+  labs(x = "Goals") +
+  theme_minimal() + 
+  theme(legend.position = "none")
+
+ 
+
+
+```
+
+
+
+```{r}
+coward <- goals %>% 
+  mutate(ratio = goals/xG) %>% 
+  filter(!is.nan(ratio)) %>% 
+  filter(ratio != 0) %>% 
+  filter(xG > 0.5) %>% 
+  slice_min(ratio)
+
+chancer <- goals %>% 
+  mutate(ratio = goals/xG) %>% 
+  filter(!is.nan(ratio)) %>% 
+  filter(ratio != 0) %>% 
+  filter(xG > 0.5) %>% 
+  slice_max(ratio)
+
+trusted <- goals %>% 
+  mutate(ratio = goals/xG) %>% 
+  filter(!is.nan(ratio)) %>% 
+  filter(ratio != 0) %>% 
+  filter(xG > 0.5) %>%
+  filter(abs(ratio - 1) == min(abs(ratio - 1)))
+  
+  
+```
+
+
+
+
+
+Row {data-height=50}
+-----------------------------------------------------------------------
+
+<p class="intro">The biggest chancer is <b>`r chancer$player_name`</b>. This `r random_insults[1]` should have scored `r round(chancer$xG)` goals, instead the `r random_insults[2]` has `r chancer$goals`.
+<br>
+The biggest coward is <b>`r coward$player_name`</b>. This `r random_insults[3]` should have scored `r round(coward$xG)` goals, instead the `r random_insults[4]` has `r coward$goals`.
+<br>
+You know who is trusthworthy? <b>`r trusted$player_name`</b>. He's `r random_compliments[1]`.
+</p>
+
+Row 
+-----------------------------------------------------------------------
+
+### Expected goals vs Actual goals
+
+```{r}
+
+ggplotly(gg_goals, tooltip = "text")
+```
+
+
+
+
+
+Assists
+=======================================================================
+
+```{r}
+assists <- stat_selection(df, assists, xA)  
+
+axis <- max(pmax(assists$assists, assists$xA)) + 1
+
+text_position <- max(pmax(assists$assists, assists$xA))
+
+  
+gg_assists <- ggplot(assists, aes(assists, xA, text = paste("Player:", player_name,
+                                                       "<br>",
+                                                       "Assists:", assists,
+                                                       "<br>",
+                                                       "xA:", round(xA,2)))) +
+    geom_point(aes(colour = secondary_colour, fill = primary_colour), shape = 21, size = 5, alpha = .5) +
+    scale_color_identity(labels = assists$team_name,
+                         breaks = assists$primary_colour) +
+    scale_fill_identity(labels = assists$team_name,
+                        breaks = assists$secondary_colour) +
+  geom_abline(colour = "grey", lty = 2) +
+  annotate(geom="text", x=1, y=text_position, label= "Cowards") +
+  annotate(geom="text", x=text_position, y=1, label="Chancers") +
+  scale_x_continuous(limits = c(0,axis), breaks = pretty_breaks()) +
+  scale_y_continuous(limits = c(0,axis), breaks = pretty_breaks()) +
+  labs(x = "Assists") +
+  theme_minimal() + 
+  theme(legend.position = "none")
+
+ 
+
+
+```
+
+
+
+```{r}
+coward <- assists %>% 
+  mutate(ratio = assists/xA) %>% 
+  filter(!is.nan(ratio)) %>% 
+  filter(ratio != 0) %>% 
+  filter(xA > 1) %>% 
+  slice_min(ratio)
+
+chancer <- assists %>% 
+  mutate(ratio = assists/xA) %>% 
+  filter(!is.nan(ratio)) %>% 
+  filter(ratio != 0) %>% 
+  filter(xA > 1) %>% 
+  slice_max(ratio)
+
+trusted <- assists %>% 
+  mutate(ratio = assists/xA) %>% 
+  filter(!is.nan(ratio)) %>% 
+  filter(ratio != 0) %>% 
+  filter(xA > 1) %>%
+  filter(abs(ratio - 1) == min(abs(ratio - 1)))
+  
+  
+```
+
+
+
+
+
+
+Row {data-height=50}
+-----------------------------------------------------------------------
+
+<p class="intro">The biggest chancer is <b>`r chancer$player_name`</b>. This `r random_insults[5]` should have `r round(chancer$xA)` assists, instead the `r random_insults[6]` has `r chancer$assists`.
+<br>
+The biggest coward is <b>`r coward$player_name`</b>. This `r random_insults[7]` should have `r round(coward$xA)` assists, instead the `r random_insults[8]` has `r coward$assists`.
+<br>
+You know who is trusthworthy? <b>`r trusted$player_name`</b>. He's `r random_compliments[2]`.
+</p>
+
+Row 
+-----------------------------------------------------------------------
+
+### Expected assists vs Actual assists
+
+```{r}
+
+ggplotly(gg_assists, tooltip = "text")
+```
+
+
+
+
+
+Shots
+=======================================================================
+
+
+
+```{r}
+shots <- stat_selection(df, shots, goals)  
+
+
+zero_goals <- shots %>% 
+  filter(goals == 0) %>% 
+  arrange(desc(shots)) %>% 
+  slice(1)
+
+shots <- shots %>% 
+  mutate(shots_per_goal = shots/goals) %>% 
+  filter(!is.infinite(shots_per_goal)) %>% 
+  filter(shots_per_goal != 0) %>% 
+  top_n(30, shots_per_goal) %>% 
+  mutate(player_name = fct_reorder(player_name, shots_per_goal)) 
+  
+  
+  
+  gg_shots <- ggplot(shots, aes(text = paste("Player:", player_name,
+                          "<br>",
+                          "Shots:", shots,
+                          "<br>",
+                          "Goals:", goals,
+                          "<br>",
+                          "Shots per goal:", shots_per_goal))) +
+  geom_col(aes(shots_per_goal, player_name, colour = secondary_colour, fill = primary_colour), alpha = .75) +
+  scale_color_identity(labels = shots$team_name,
+                       breaks = shots$primary_colour) +
+  scale_fill_identity(labels = shots$team_name,
+                      breaks = shots$secondary_colour) +
+  labs(x = "Shots per Goal", y = "Player") +
+  theme_minimal() + 
+  theme(legend.position = "none")
+
+
+
+```
+
+
+
+```{r}
+bad_shot <- shots %>% 
+  slice_max(shots_per_goal) %>% 
+  slice(1)
+```
+
+
+```{r}
+firstup <- function(x) {
+  substr(x, 1, 1) <- toupper(substr(x, 1, 1))
+  x
+}
+```
+
+
+
+Row {data-height=50}
+-----------------------------------------------------------------------
+
+<p class="intro">
+You know who can't shoot? <b>`r bad_shot$player_name`</b>. This `r random_insults[9]` has taken `r bad_shot$shots` shots, and only scored `r bad_shot$goals`. What an absolute `r random_insults[10]`.
+<br>
+Special mention to <b>`r zero_goals$player_name`</b> who has taken `r zero_goals$shots` shots without a single goal. Wtf?  `r firstup(random_insults[11])`.
+</p>
+
+Row 
+-----------------------------------------------------------------------
+
+### Shots per Goal
+
+```{r}
+
+ggplotly(gg_shots, tooltip = "text")
+```
+
+
+
+
+
+Vile Teams
+=======================================================================
+
+```{r}
+team_goals <- team_stat_selection(df2, scored_cumul, xG_cumul)
+
+team_conc <- team_stat_selection(df2, missed_cumul, xGA_cumul)
+
+team_pts <- team_stat_selection(df2, pts_cumul, xpts_cumul)
+
+table <- team_pts %>% 
+  ungroup() %>% 
+  arrange(desc(pts_cumul)) %>% 
+  mutate(pos = row_number()) %>% 
+  arrange(desc(xpts_cumul)) %>% 
+  mutate(xpos = row_number()) %>% 
+  mutate(pos_diff = pos - xpos)
+```
+
+
+Row
+-----------------------------------------------------------------------
+
+### Goals Scored
+
+```{r}
+gg_team_goals <- team_goals %>% 
+  ungroup() %>% 
+  mutate(team_name = fct_reorder(team_name, diff)) %>% 
+  ggplot(aes(text = paste("Team:", team_name,
+                          "<br>",
+                          "Goals:", scored_cumul,
+                          "<br>",
+                          "xG:", xG_cumul,
+                          "<br>",
+                          "Difference:", diff))) +
+  geom_col(aes(diff, team_name, colour = secondary_colour, fill = primary_colour), alpha = .75) +
+  scale_color_identity(labels = team_goals$team_name,
+                       breaks = team_goals$primary_colour) +
+  scale_fill_identity(labels = team_goals$team_name,
+                      breaks = team_goals$secondary_colour) +
+  labs(x = "<- Underachieving | Overachieving ->", y = "Team") +
+  theme_minimal() + 
+  theme(legend.position = "none")
+
+ggplotly(gg_team_goals, tooltip = "text")
+```
+
+
+### Goals Conceeded
+
+```{r}
+gg_team_conc <- team_conc %>% 
+  ungroup() %>% 
+  mutate(team_name = fct_reorder(team_name, -diff)) %>% 
+  ggplot(aes(text = paste("Team:", team_name,
+                          "<br>",
+                          "Conceeded:", missed_cumul,
+                          "<br>",
+                          "xGA:", xGA_cumul,
+                          "<br>",
+                          "Difference:", diff))) +
+  geom_col(aes(diff, team_name, colour = secondary_colour, fill = primary_colour), alpha = .75) +
+  scale_color_identity(labels = team_conc$team_name,
+                       breaks = team_conc$primary_colour) +
+  scale_fill_identity(labels = team_conc$team_name,
+                      breaks = team_conc$secondary_colour) +
+  labs(x = "<- Overachieving | Underachieving ->", y = "Team") +
+  theme_minimal() + 
+  theme(legend.position = "none")
+
+ggplotly(gg_team_conc, tooltip = "text")
+```
+
+Row
+-----------------------------------------------------------------------
+
+### Points
+
+```{r}
+gg_team_pts <- team_pts %>% 
+  ungroup() %>% 
+  mutate(team_name = fct_reorder(team_name, diff)) %>% 
+  ggplot(aes(text = paste("Team:", team_name,
+                          "<br>",
+                          "Pts:", pts_cumul,
+                          "<br>",
+                          "xPts:", xpts_cumul,
+                          "<br>",
+                          "Difference:", diff))) +
+  geom_col(aes(diff, team_name, colour = secondary_colour, fill = primary_colour), alpha = .75) +
+  scale_color_identity(labels = team_pts$team_name,
+                       breaks = team_pts$primary_colour) +
+  scale_fill_identity(labels = team_pts$team_name,
+                      breaks = team_pts$secondary_colour) +
+  labs(x = "<- Underachieving | Overachieving ->", y = "Team") +
+  theme_minimal() + 
+  theme(legend.position = "none")
+
+ggplotly(gg_team_pts, tooltip = "text")
+```
+
+
+
+### Positions
+
+```{r}
+
+gg_team_pos <-table %>% 
+  mutate(team_name = fct_reorder(team_name, -xpos)) %>% 
+  ggplot(aes(text = paste("Team:", team_name,
+                          "<br>",
+                          "Pos:", pos,
+                          "<br>",
+                          "xPos:", xpos,
+                          "<br>",
+                          "Difference:", pos_diff))) +
+  geom_segment(aes(x = team_name, xend = team_name, y = pos, yend = xpos)) +
+  geom_point( aes(x=team_name, y=pos, colour = secondary_colour, fill = primary_colour), size=3, shape = 21,alpha = .25 ) +
+  geom_point( aes(x=team_name, y=xpos, colour = secondary_colour, fill = primary_colour), size=5,shape = 21, alpha = .75  ) +
+    scale_color_identity(labels = table$team_name,
+                         breaks = table$primary_colour) +
+    scale_fill_identity(labels = table$team_name,
+                        breaks = table$secondary_colour) +
+  scale_y_reverse() +
+  labs(x = "Team", y = "Larger point indicates xPos") +
+  coord_flip() +
+  theme_minimal() + 
+  theme(legend.position = "none") 
+  
+  
+ggplotly(gg_team_pos, tooltip = "text")
+```
+
+
